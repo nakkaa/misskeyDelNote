@@ -11,10 +11,10 @@ import (
 
 // 消去を行う際に必要な項目です。適切に埋めてください。
 const (
-	UserID             = "XXX"
-	TimelineChannel    = "XXX"
-	APIToken           = "XXX"
-	MisskeyHost        = "XXX"
+	UserID             = "NEKO"
+	TimelineChannel    = "home"
+	APIToken           = "4YlfkvEIObF2ftHv8hVY2k5Ltv6bYhSE"
+	MisskeyHost        = "msk.ilnk.info"
 	RequestIntervalSec = 15 //DOSまがいの負荷をかけないように遅延秒数を指定する。
 )
 
@@ -87,7 +87,7 @@ func getPostIDs() []string {
 	}
 	respBody, err := postHTTPRequest("/api/users/notes", data)
 	if err != nil {
-		fmt.Println("投稿IDを取得できませんでした。　IDs:", err)
+		fmt.Println("投稿IDを取得できませんでした。IDs:", err)
 		return nil
 	}
 
