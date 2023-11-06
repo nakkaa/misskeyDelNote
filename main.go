@@ -1,112 +1,271 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
-// 消去を行う際に必要な項目です。適切に埋めてください。
-const (
-	UserID             = "NEKO"
-	TimelineChannel    = "home"
-	APIToken           = "4YlfkvEIObF2ftHv8hVY2k5Ltv6bYhSE"
-	MisskeyHost        = "msk.ilnk.info"
-	RequestIntervalSec = 15 //DOSまがいの負荷をかけないように遅延秒数を指定する。
-)
+var endpoint string
+
+func oauth() string {
+	var token, host string
+
+	//認証
+	fmt.Println("トークンを設定してください。APIで全権限付与した物を扱うので扱いには十分お気を付けください。")
+	token = readInput("Token: ")
+
+	fmt.Println("サーバーのホストを設定してください。https://の記載は不要でドメインのみ記載してね。")
+	host = readInput("Host: ")
+
+	endpoint = "https://" + host + "/api/"
+
+	return token
+}
+
+func readInput(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
+}
+
+func post(api string, args map[string]interface{}) ([]byte, error) {
+	requestBody, err := json.Marshal(args)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.Post(endpoint+api, "application/json", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		return nil, fmt.Errorf("HTTP error: %d", res.StatusCode)
+	}
+
+	responseBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return responseBody, nil
+}
+
+type User struct {
+	Name        string `json:"name"`
+	Username    string `json:"username"`
+	NotesCount  int    `json:"notesCount"`
+	Id          string `json:"id"`
+	PinnedNotes []Note `json:"pinnedNotes"`
+}
+
+type Note struct {
+	Id        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type Error struct {
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Id      string `json:"id"`
+	Kind    string `json:"kind"`
+}
+
+//ピンどめされてたら外してから抹消する処理
+
+func UnpinNote(noteId, token string) error {
+	args := map[string]interface{}{
+		"noteId": noteId,
+		"i":      token,
+	}
+	return Post("i/unpin", args, nil)
+}
 
 func main() {
-	for {
-		postIds := getPostIDs()
-		if len(postIds) == 0 {
-			break
-		}
-
-		for _, id := range postIds {
-			deletePost(id)
-			time.Sleep(time.Second * RequestIntervalSec)
-		}
-	}
-
-	fmt.Println("処理が終了しました。")
-}
-
-func postHTTPRequest(endpoint string, data interface{}) ([]byte, error) {
-	url := "https://" + MisskeyHost + endpoint
-	jsonData, err := json.Marshal(data)
+	//ユーザー情報の照会
+	token := oauth()
+	me, err := FetchUser("i", map[string]interface{}{"i": token})
 	if err != nil {
-		return nil, err
-	}
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		fmt.Println("何らかの通信エラーが発生しました。")
-		fmt.Printf("HTTPステータス: %d\n", resp.StatusCode)
-		fmt.Printf("%s\n", respBody)
-		return nil, fmt.Errorf("HTTP error")
-	}
-
-	return respBody, nil
-}
-
-func deletePost(id string) {
-	data := map[string]interface{}{
-		"i":      APIToken,
-		"noteId": id,
-	}
-	_, err := postHTTPRequest("/api/notes/delete", data)
-	if err != nil {
-		fmt.Printf("投稿の消去時に問題が発生しました %s: %v\n", id, err)
+		fmt.Println("照会中にエラーが発生しました:", err)
 		return
 	}
 
-	timestamp := time.Now().Format("2006/01/02 15:04:05")
-	fmt.Printf("deleted %s -- %s\n", id, timestamp)
+	fmt.Println("ノート数を補足:")
+	fmt.Printf(" %s @%s\n", me.Name, me.Username)
+	fmt.Printf(" %d Notes\n", me.NotesCount)
+	fmt.Printf(" id: %s\n", me.Id)
+
+	//ピン留めの解除
+	pinnedCount := 0
+
+	for _, note := range me.PinnedNotes {
+		err := UnpinNote(note.Id, token)
+		if err != nil {
+			fmt.Printf("Error unpinning note: %v\n", err)
+		} else {
+			fmt.Printf("Unpinned note: %v\n", note)
+			pinnedCount++
+		}
+	}
+
+	fmt.Printf("Unpinned %d notes\n", pinnedCount)
+
+	notes := []Note{}
+	needsFetchingAllNotes := true
+
+	if _, err := os.Stat("notes.json"); err == nil {
+		var yesno string
+		fmt.Println("You have `notes.json`. By using this file, no longer need to make API requests for all notes. May I import this file?")
+		for yesno != "y" && yesno != "n" {
+			fmt.Print(" (Y,n) > ")
+			fmt.Scanln(&yesno)
+		}
+
+		if yesno == "y" {
+			needsFetchingAllNotes = false
+			content, err := ioutil.ReadFile("notes.json")
+			if err != nil {
+				fmt.Println("Error reading file:", err)
+			} else {
+				var n []Note
+				if err := json.Unmarshal(content, &n); err != nil {
+					fmt.Println("Error decoding JSON:", err)
+				} else {
+					notes = append(notes, n...)
+					for _, note := range n {
+						fmt.Printf("Imported: %v\n", note)
+					}
+				}
+			}
+		}
+	}
+
+	if needsFetchingAllNotes {
+		fmt.Println("Fetching your all notes. It takes some time...")
+		untilId := ""
+
+		for {
+			fetched, err := GetUsersNotes(me.Id, untilId, token)
+			if err != nil {
+				fmt.Printf("Error fetching notes: %v\n", err)
+				break
+			}
+
+			if len(fetched) == 0 {
+				break
+			}
+
+			untilId = fetched[len(fetched)-1].Id
+			notes = append(notes, fetched...)
+			fmt.Printf("Fetched %d notes.\n", len(notes))
+		}
+	}
+
+	fmt.Printf("Fetched your %d notes!\n", len(notes))
+
+	//取得したnotesをcreatedAtの昇順にソートする
+	notes = orderByCreatedAt(notes)
+
+	for i := 0; i < len(notes); i++ {
+		note := notes[i]
+		err := DeleteNote(note.Id, token)
+		if err != nil {
+			fmt.Printf("Error deleting note %d/%d: %v\n", i+1, len(notes), err)
+			fmt.Println("Retry after 15 minutes")
+			time.Sleep(15 * time.Minute)
+			i--
+		} else {
+			fmt.Printf("Deleted note %d/%d\n", i+1, len(notes))
+			time.Sleep(1 * time.Second)
+		}
+	}
+
+	fmt.Println("Press ENTER to exit")
+	fmt.Scanln()
 }
 
-// nsfwな投稿を残す場合はexcludeNsfwをfalseにする
-func getPostIDs() []string {
-	data := map[string]interface{}{
-		"i":           TimelineChannel,
-		"excludeNsfw": true,
-		"limit":       100,
-		"userId":      UserID,
+func orderByCreatedAt(notes []Note) []Note {
+
+	return notes
+}
+
+func GetUsersNotes(userId, untilId, token string) ([]Note, error) {
+	args := map[string]interface{}{}
+	if untilId == "" {
+		args = map[string]interface{}{
+			"userId": userId,
+			"limit":  100,
+			"i":      token,
+		}
+	} else {
+		args = map[string]interface{}{
+			"userId":  userId,
+			"untilId": untilId,
+			"limit":   100,
+			"i":       token,
+		}
 	}
-	respBody, err := postHTTPRequest("/api/users/notes", data)
+
+	notes, err := FetchNotes("users/notes", args)
+	return notes, err
+}
+
+func FetchUser(api string, args map[string]interface{}) (User, error) {
+	user := User{}
+	err := Post(api, args, &user)
+	return user, err
+}
+
+func FetchNotes(api string, args map[string]interface{}) ([]Note, error) {
+	notes := []Note{}
+	err := Post(api, args, &notes)
+	return notes, err
+}
+
+func Post(api string, args map[string]interface{}, result interface{}) error {
+	requestBody, err := json.Marshal(args)
 	if err != nil {
-		fmt.Println("投稿IDを取得できませんでした。IDs:", err)
-		return nil
+		return err
 	}
 
-	var respData []struct {
-		ID string `json:"id"`
-	}
-	err = json.Unmarshal(respBody, &respData)
+	res, err := http.Post(endpoint+api, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		fmt.Println("投稿IDをパース出来ませんでした。 IDs:", err)
-		return nil
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		return fmt.Errorf("HTTP error: %d", res.StatusCode)
 	}
 
-	count := len(respData)
-	fmt.Printf("消去された投稿数[ %d ] = >>\n", count)
-
-	var postIDs []string
-	for _, item := range respData {
-		postIDs = append(postIDs, item.ID)
+	responseBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
 	}
 
-	return postIDs
+	if result != nil {
+		if err := json.Unmarshal(responseBody, result); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DeleteNote(noteId, token string) error {
+	args := map[string]interface{}{
+		"noteId": noteId,
+		"i":      token,
+	}
+
+	return Post("notes/delete", args, nil)
 }
