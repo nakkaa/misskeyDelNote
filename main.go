@@ -202,16 +202,18 @@ func GetUsersNotes(userId, untilId, token string) ([]Note, error) {
 	args := map[string]interface{}{}
 	if untilId == "" {
 		args = map[string]interface{}{
-			"userId": userId,
-			"limit":  100,
-			"i":      token,
+			"userId":           userId,
+			"limit":            100,
+			"i":                token,
+			"withChannelNotes": true,
 		}
 	} else {
 		args = map[string]interface{}{
-			"userId":  userId,
-			"untilId": untilId,
-			"limit":   100,
-			"i":       token,
+			"userId":           userId,
+			"untilId":          untilId,
+			"limit":            100,
+			"i":                token,
+			"withChannelNotes": true,
 		}
 	}
 
