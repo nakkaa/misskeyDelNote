@@ -206,6 +206,9 @@ func GetUsersNotes(userId, untilId, token string) ([]Note, error) {
 			"limit":            100,
 			"i":                token,
 			"withChannelNotes": true,
+			"isHidden":         true,
+			"isSensitive":      true,
+			"withReplies":      true,
 		}
 	} else {
 		args = map[string]interface{}{
@@ -214,6 +217,9 @@ func GetUsersNotes(userId, untilId, token string) ([]Note, error) {
 			"limit":            100,
 			"i":                token,
 			"withChannelNotes": true,
+			"isHidden":         true,
+			"isSensitive":      true,
+			"withReplies":      true,
 		}
 	}
 
