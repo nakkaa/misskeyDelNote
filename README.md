@@ -1,11 +1,12 @@
 # Misskey Note Delete Tool
 A tool to erase posts you posted on Misskey.
-Works with Golang😊
+The main branch is for local PCs where you can directly enter the API and URL, and the env 
+branch is able to on the server and can be used for cron execution.🚀
 
 ## Usage
 
 ```
-go build main.go
+go build
 ```
 
 ```
