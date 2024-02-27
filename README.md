@@ -5,12 +5,12 @@ branch is able to on the server and can be used for cron execution.🚀
 
 ## Usage
 
-```
+```shell
 go build
 ```
 
-```
-./main
+```shell
+`./misskeyNotedel`
 ```
 
 When you run it, you'll be asked for an access token and the host name to connect to.
