@@ -10,7 +10,7 @@ go build
 ```
 
 ```shell
-`./misskeyNotedel`
+./misskeyNotedel
 ```
 
 When you run it, you'll be asked for an access token and the host name to connect to.
