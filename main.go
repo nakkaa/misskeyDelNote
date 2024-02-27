@@ -17,7 +17,6 @@ var endpoint string
 func oauth() string {
 	var token, host string
 
-	//認証
 	fmt.Println("トークンを設定してください。APIで全権限付与した物を扱うので扱いには十分お気を付けください。")
 	token = readInput("Token: ")
 
@@ -80,8 +79,6 @@ type Error struct {
 	Kind    string `json:"kind"`
 }
 
-//ピンどめされてたら外してから抹消する処理
-
 func UnpinNote(noteId, token string) error {
 	args := map[string]interface{}{
 		"noteId": noteId,
@@ -103,8 +100,7 @@ func main() {
 	fmt.Printf(" %s @%s\n", me.Name, me.Username)
 	fmt.Printf(" %d Notes\n", me.NotesCount)
 	fmt.Printf(" id: %s\n", me.Id)
-
-	//ピン留めの解除
+	
 	pinnedCount := 0
 
 	for _, note := range me.PinnedNotes {
@@ -172,7 +168,6 @@ func main() {
 
 	fmt.Printf("Fetched your %d notes!\n", len(notes))
 
-	//取得したnotesをcreatedAtの昇順にソートする
 	notes = orderByCreatedAt(notes)
 
 	for i := 0; i < len(notes); i++ {
