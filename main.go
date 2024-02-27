@@ -17,10 +17,10 @@ var endpoint string
 func oauth() string {
 	var token, host string
 
-	fmt.Println("トークンを設定してください。APIで全権限付与した物を扱うので扱いには十分お気を付けください。")
+	fmt.Println("Please set a token with full permissions.")
 	token = readInput("Token: ")
 
-	fmt.Println("サーバーのホストを設定してください。https://の記載は不要でドメインのみ記載してね。")
+	fmt.Println("Please set the server host. You don't need to write https:// just write the domain.")
 	host = readInput("Host: ")
 
 	endpoint = "https://" + host + "/api/"
@@ -91,11 +91,11 @@ func main() {
 	token := oauth()
 	me, err := FetchUser("i", map[string]interface{}{"i": token})
 	if err != nil {
-		fmt.Println("照会中にエラーが発生しました:", err)
+		fmt.Println("An error occurred while querying:", err)
 		return
 	}
 
-	fmt.Println("ノート数を補足:")
+	fmt.Println("Read posted content:")
 	fmt.Printf(" %s @%s\n", me.Name, me.Username)
 	fmt.Printf(" %d Notes\n", me.NotesCount)
 	fmt.Printf(" id: %s\n", me.Id)
