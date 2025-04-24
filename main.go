@@ -173,10 +173,16 @@ func main() {
 		note := notes[i]
 		err := DeleteNote(note.Id, token)
 		if err != nil {
-			fmt.Printf("Error deleting note %d/%d: %v\n", i+1, len(notes), err)
-			fmt.Println("Retry after 15 minutes")
-			time.Sleep(15 * time.Minute)
-			i--
+			// 400エラーの場合は処理をスキップする
+			if strings.Contains(err.Error(), "400") {
+				fmt.Printf("Note %d/%d is already deleted.\n", i+1, len(notes))
+				continue
+			} else {
+				fmt.Printf("Error deleting note %d/%d: %v\n", i+1, len(notes), err)
+				fmt.Println("Retry after 15 minutes")
+				time.Sleep(15 * time.Minute)
+				i--
+			}
 		} else {
 			fmt.Printf("Deleted note %d/%d\n", i+1, len(notes))
 			time.Sleep(1 * time.Second)
